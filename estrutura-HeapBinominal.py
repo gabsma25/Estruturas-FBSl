@@ -1,137 +1,191 @@
+import time
+
+
 class BinomialNode:
     def __init__(self, key):
         self.key = key
-        self.parent = None
+        self.degree = 0
         self.child = None
         self.sibling = None
-        self.degree = 0  # Número de filhos
+        self.parent = None
+
 
 class BinomialHeap:
     def __init__(self):
         self.head = None
 
+    def create_node(self, key):
+        return BinomialNode(key)
+
+    def link_trees(self, tree1, tree2):
+        if tree1.key > tree2.key:
+            tree1, tree2 = tree2, tree1
+        tree2.parent = tree1
+        tree2.sibling = tree1.child
+        tree1.child = tree2
+        tree1.degree += 1
+        return tree1
+
+    def merge_heaps(self, heap1, heap2):
+        if heap1.head is None:
+            return heap2
+        if heap2.head is None:
+            return heap1
+
+        new_head = None
+        h1 = heap1.head
+        h2 = heap2.head
+
+        if h1.degree <= h2.degree:
+            new_head = h1
+            h1 = h1.sibling
+        else:
+            new_head = h2
+            h2 = h2.sibling
+
+        current = new_head
+
+        while h1 and h2:
+            if h1.degree <= h2.degree:
+                current.sibling = h1
+                h1 = h1.sibling
+            else:
+                current.sibling = h2
+                h2 = h2.sibling
+            current = current.sibling
+
+        current.sibling = h1 if h1 else h2
+
+        merged_heap = BinomialHeap()
+        merged_heap.head = new_head
+        return merged_heap
+
+    def union_heaps(self, heap1, heap2):
+        merged_heap = self.merge_heaps(heap1, heap2)
+        if not merged_heap.head:
+            return merged_heap
+
+        prev = None
+        curr = merged_heap.head
+        next = curr.sibling
+
+        while next:
+            if (curr.degree != next.degree) or (
+                next.sibling and next.sibling.degree == curr.degree
+            ):
+                prev = curr
+                curr = next
+            else:
+                if curr.key <= next.key:
+                    curr.sibling = next.sibling
+                    curr = self.link_trees(curr, next)
+                else:
+                    if prev:
+                        prev.sibling = next
+                    else:
+                        merged_heap.head = next
+                    next = self.link_trees(curr, next)
+                    curr = next
+            next = curr.sibling
+
+        return merged_heap
+
     def insert(self, key):
-        new_heap = BinomialHeap()
-        new_heap.head = BinomialNode(key)
-        self.head = self._union(self.head, new_heap.head)
+        new_node = self.create_node(key)
+        temp_heap = BinomialHeap()
+        temp_heap.head = new_node
+        self.head = self.union_heaps(self, temp_heap).head
 
     def find_min(self):
         if not self.head:
             return None
-        current = self.head
-        min_node = current
-        while current:
-            if current.key < min_node.key:
-                min_node = current
-            current = current.sibling
-        return min_node.key
+
+        min_node = self.head
+        curr = self.head
+
+        while curr:
+            if curr.key < min_node.key:
+                min_node = curr
+            curr = curr.sibling
+
+        return min_node
+
+    def reverse_list(self, node):
+        prev = None
+        curr = node
+
+        while curr:
+            next = curr.sibling
+            curr.sibling = prev
+            prev = curr
+            curr = next
+
+        return prev
 
     def extract_min(self):
         if not self.head:
             return None
-        # Encontrar o nó mínimo e seu pai
-        min_node = self.head
-        min_node_prev = None
-        prev = None
-        current = self.head
-        while current:
-            if current.key < min_node.key:
-                min_node = current
-                min_node_prev = prev
-            prev = current
-            current = current.sibling
 
-        # Remover o nó mínimo da lista de raízes
-        if min_node_prev:
-            min_node_prev.sibling = min_node.sibling
+        min_node = self.head
+        min_prev = None
+        curr = self.head
+        prev = None
+
+        while curr.sibling:
+            if curr.sibling.key < min_node.key:
+                min_node = curr.sibling
+                min_prev = curr
+            curr = curr.sibling
+
+        if min_prev:
+            min_prev.sibling = min_node.sibling
         else:
             self.head = min_node.sibling
 
-        # Reverter a lista de filhos do nó mínimo
         child = min_node.child
-        new_head = None
-        while child:
-            next_child = child.sibling
-            child.sibling = new_head
-            new_head = child
-            child.parent = None
-            child = next_child
+        if child:
+            child = self.reverse_list(child)
+            temp_heap = BinomialHeap()
+            temp_heap.head = child
+            self.head = self.union_heaps(self, temp_heap).head
 
-        # Unir a lista de filhos do mínimo ao heap atual
-        self.head = self._union(self.head, new_head)
-        return min_node.key
+        return min_node
 
-    def delete(self, node):
-        # Diminuir a chave do nó para -∞ e extrair o mínimo
-        self.decrease_key(node, float('-inf'))
-        self.extract_min()
 
-    def decrease_key(self, node, new_key):
-        if new_key > node.key:
-            raise ValueError("A nova chave deve ser menor que a chave atual.")
-        node.key = new_key
-        while node.parent and node.key < node.parent.key:
-            # Trocar a chave com o pai
-            node.key, node.parent.key = node.parent.key, node.key
-            node = node.parent
+# Adaptação para usar o dataset gerado
+if __name__ == "__main__":
+    heap = BinomialHeap()
 
-    def _union(self, heap1, heap2):
-        merged = self._merge(heap1, heap2)
-        if not merged:
-            return None
+    # Caminho do dataset
+    file_path = "dataset_100000_numbers.txt"
 
-        prev = None
-        current = merged
-        next_node = current.sibling
+    # Ler os números do arquivo
+    print("Carregando dataset...")
+    with open(file_path, "r") as file:
+        numbers = list(map(int, file.readlines()))
+    print(f"Carregado {len(numbers)} números.")
 
-        while next_node:
-            if current.degree != next_node.degree or (next_node.sibling and next_node.sibling.degree == current.degree):
-                prev = current
-                current = next_node
-            else:
-                if current.key <= next_node.key:
-                    current.sibling = next_node.sibling
-                    self._link(next_node, current)
-                else:
-                    if prev:
-                        prev.sibling = next_node
-                    else:
-                        merged = next_node
-                    self._link(current, next_node)
-                    current = next_node
-            next_node = current.sibling
+    # Inserir números no heap
+    print("Inserindo números no heap binomial...")
+    start_time = time.time()
+    for number in numbers:
+        heap.insert(number)
+    print(f"Inserção concluída em {time.time() - start_time:.2f} segundos.")
 
-        return merged
+    # Encontrar o menor número
+    start_time = time.time()
+    min_node = heap.find_min()
+    if min_node:
+        print(f"Menor número: {min_node.key}")
+    print(f"Busca do menor número concluída em {time.time() - start_time:.2f} segundos.")
 
-    def _merge(self, heap1, heap2):
-        if not heap1:
-            return heap2
-        if not heap2:
-            return heap1
-
-        if heap1.degree <= heap2.degree:
-            head = heap1
-            heap1 = heap1.sibling
-        else:
-            head = heap2
-            heap2 = heap2.sibling
-
-        current = head
-        while heap1 and heap2:
-            if heap1.degree <= heap2.degree:
-                current.sibling = heap1
-                heap1 = heap1.sibling
-            else:
-                current.sibling = heap2
-                heap2 = heap2.sibling
-            current = current.sibling
-
-        current.sibling = heap1 if heap1 else heap2
-        return head
-
-    def _link(self, y, z):
-        # y torna-se o filho de z
-        y.parent = z
-        y.sibling = z.child
-        z.child = y
-        z.degree += 1
+    # Extrair todos os números
+    print("Extraindo todos os números do heap...")
+    start_time = time.time()
+    count = 0
+    while True:
+        min_node = heap.extract_min()
+        if not min_node:
+            break
+        count += 1
+    print(f"Extração de {count} números concluída em {time.time() - start_time:.2f} segundos.")
