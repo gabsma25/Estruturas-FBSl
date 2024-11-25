@@ -1,3 +1,8 @@
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Implementação da classe Node e FibonacciHeap (já fornecida acima)
 class Node:
     def __init__(self, key):
         self.key = key
@@ -9,6 +14,7 @@ class Node:
         self.prev = self
 
 class FibonacciHeap:
+    
     def __init__(self):
         self.min_node = None
         self.total_nodes = 0
@@ -154,3 +160,79 @@ class FibonacciHeap:
             node = node.next
             if node == head:
                 break
+
+    def __init__(self):
+        self.min_node = None
+        self.total_nodes = 0
+
+    def insert(self, key):
+        new_node = Node(key)
+        if not self.min_node:
+            self.min_node = new_node
+        else:
+            self._add_to_root_list(new_node)
+            if new_node.key < self.min_node.key:
+                self.min_node = new_node
+        self.total_nodes += 1
+        return new_node
+
+    def find_min(self):
+        if not self.min_node:
+            return None
+        return self.min_node.key
+
+    def extract_min(self):
+        z = self.min_node
+        if z:
+            if z.child:
+                children = [x for x in self._iterate(z.child)]
+                for child in children:
+                    self._add_to_root_list(child)
+                    child.parent = None
+            self._remove_from_root_list(z)
+            if z == z.next:  # Foi o único nó
+                self.min_node = None
+            else:
+                self.min_node = z.next
+                self._consolidate()
+            self.total_nodes -= 1
+        return z.key if z else None
+
+
+# análise de desempenho
+def analyze_fibonacci_heap(dataset):
+    fib_heap = FibonacciHeap()
+    times = {}
+
+    # Medir tempo de inserção
+    start = time.time()
+    nodes = [fib_heap.insert(num) for num in dataset]
+    times["Inserção"] = time.time() - start
+
+    # Medir tempo para encontrar o mínimo
+    start = time.time()
+    min_value = fib_heap.find_min()
+    times["Busca Mínimo"] = time.time() - start
+
+    # Medir tempo para extração do mínimo
+    start = time.time()
+    for _ in range(len(dataset)):
+        fib_heap.extract_min()
+    times["Extração Mínimo"] = time.time() - start
+
+    return times
+
+# Carregar dataset
+dataset_path = "dataset_100000_numbers.txt"
+dataset = np.loadtxt(dataset_path, dtype=int)
+
+# Executar análise
+performance = analyze_fibonacci_heap(dataset)
+
+# Gerar gráficos
+plt.figure(figsize=(10, 6))
+plt.bar(performance.keys(), performance.values(), color=['blue', 'orange', 'green'])
+plt.title("Desempenho da Heap de Fibonacci")
+plt.ylabel("Tempo (segundos)")
+plt.xlabel("Operação")
+plt.show()

@@ -1,25 +1,77 @@
-class BinomialNode:
-    def __init__(self, key):
-        self.key = key
-        self.parent = None
-        self.child = None
-        self.sibling = None
-        self.degree = 0  # Número de filhos
+import time
+import matplotlib.pyplot as plt
 
+# Classe para a estrutura Heap Binomial
 class BinomialHeap:
+    class Node:
+        def __init__(self, key):
+            self.key = key
+            self.degree = 0
+            self.child = None
+            self.sibling = None
+
     def __init__(self):
         self.head = None
 
+    def merge(self, other):
+        # Método para mesclar duas heaps binomiais
+        if not self.head:
+            self.head = other.head
+            return
+        if not other.head:
+            return
+        # Iniciando a fusão
+        new_head = None
+        current1, current2 = self.head, other.head
+        prev = None
+        while current1 and current2:
+            if current1.degree < current2.degree:
+                if prev:
+                    prev.sibling = current1
+                else:
+                    new_head = current1
+                prev = current1
+                current1 = current1.sibling
+            elif current1.degree > current2.degree:
+                if prev:
+                    prev.sibling = current2
+                else:
+                    new_head = current2
+                prev = current2
+                current2 = current2.sibling
+            else:
+                if current1.key < current2.key:
+                    if prev:
+                        prev.sibling = current1
+                    else:
+                        new_head = current1
+                    prev = current1
+                    current1 = current1.sibling
+                else:
+                    if prev:
+                        prev.sibling = current2
+                    else:
+                        new_head = current2
+                    prev = current2
+                    current2 = current2.sibling
+        if current1:
+            prev.sibling = current1
+        if current2:
+            prev.sibling = current2
+        self.head = new_head
+
     def insert(self, key):
         new_heap = BinomialHeap()
-        new_heap.head = BinomialNode(key)
-        self.head = self._union(self.head, new_heap.head)
+        new_node = BinomialHeap.Node(key)
+        new_heap.head = new_node
+        self.merge(new_heap)
 
-    def find_min(self):
+    def minimum(self):
+        # Retorna o mínimo valor na heap
         if not self.head:
             return None
-        current = self.head
-        min_node = current
+        min_node = self.head
+        current = self.head.sibling
         while current:
             if current.key < min_node.key:
                 min_node = current
@@ -29,109 +81,111 @@ class BinomialHeap:
     def extract_min(self):
         if not self.head:
             return None
-        # Encontrar o nó mínimo e seu pai
+        # Encontrar o nó com a chave mínima
         min_node = self.head
-        min_node_prev = None
-        prev = None
-        current = self.head
+        prev_min = None
+        current = self.head.sibling
+        prev = self.head
         while current:
             if current.key < min_node.key:
                 min_node = current
-                min_node_prev = prev
+                prev_min = prev
             prev = current
             current = current.sibling
-
-        # Remover o nó mínimo da lista de raízes
-        if min_node_prev:
-            min_node_prev.sibling = min_node.sibling
+        if prev_min:
+            prev_min.sibling = min_node.sibling
         else:
             self.head = min_node.sibling
-
-        # Reverter a lista de filhos do nó mínimo
+        # Criar uma nova heap com os filhos do nó mínimo
+        new_heap = BinomialHeap()
         child = min_node.child
-        new_head = None
         while child:
             next_child = child.sibling
-            child.sibling = new_head
-            new_head = child
-            child.parent = None
+            child.sibling = new_heap.head
+            new_heap.head = child
             child = next_child
-
-        # Unir a lista de filhos do mínimo ao heap atual
-        self.head = self._union(self.head, new_head)
+        self.merge(new_heap)
         return min_node.key
 
-    def delete(self, node):
-        # Diminuir a chave do nó para -∞ e extrair o mínimo
-        self.decrease_key(node, float('-inf'))
-        self.extract_min()
+# Função para ler o dataset
+def read_dataset(file_name):
+    with open(file_name, 'r') as f:
+        return list(map(int, f.readlines()))
 
-    def decrease_key(self, node, new_key):
-        if new_key > node.key:
-            raise ValueError("A nova chave deve ser menor que a chave atual.")
-        node.key = new_key
-        while node.parent and node.key < node.parent.key:
-            # Trocar a chave com o pai
-            node.key, node.parent.key = node.parent.key, node.key
-            node = node.parent
+# Função para avaliar o desempenho
+def evaluate_performance(heap, dataset):
+    # Avaliando inserção
+    start_time = time.time()
+    for num in dataset:
+        heap.insert(num)
+    insertion_time = time.time() - start_time
 
-    def _union(self, heap1, heap2):
-        merged = self._merge(heap1, heap2)
-        if not merged:
-            return None
+    # Avaliando busca do mínimo
+    start_time = time.time()
+    min_val = heap.minimum()
+    minimum_time = time.time() - start_time
 
-        prev = None
-        current = merged
-        next_node = current.sibling
+    # Avaliando remoção do mínimo
+    start_time = time.time()
+    for _ in range(len(dataset)):
+        heap.extract_min()
+    extraction_time = time.time() - start_time
 
-        while next_node:
-            if current.degree != next_node.degree or (next_node.sibling and next_node.sibling.degree == current.degree):
-                prev = current
-                current = next_node
-            else:
-                if current.key <= next_node.key:
-                    current.sibling = next_node.sibling
-                    self._link(next_node, current)
-                else:
-                    if prev:
-                        prev.sibling = next_node
-                    else:
-                        merged = next_node
-                    self._link(current, next_node)
-                    current = next_node
-            next_node = current.sibling
+    return insertion_time, minimum_time, extraction_time
 
-        return merged
+# Função para calcular os tempos normalizados
+def normalize_times(insertion_time, minimum_time, extraction_time):
+    total_time = insertion_time + minimum_time + extraction_time
+    normalized_insertion = insertion_time / total_time
+    normalized_minimum = minimum_time / total_time
+    normalized_extraction = extraction_time / total_time
+    return normalized_insertion, normalized_minimum, normalized_extraction
 
-    def _merge(self, heap1, heap2):
-        if not heap1:
-            return heap2
-        if not heap2:
-            return heap1
+# Função para plotar o desempenho
+def plot_performance(insertion_time, minimum_time, extraction_time):
+    labels = ['Insertion', 'Minimum', 'Extraction']
+    times = [insertion_time, minimum_time, extraction_time]
 
-        if heap1.degree <= heap2.degree:
-            head = heap1
-            heap1 = heap1.sibling
-        else:
-            head = heap2
-            heap2 = heap2.sibling
+    plt.figure(figsize=(10, 5))
+    plt.bar(labels, times, color=['blue', 'green', 'red'])
+    plt.xlabel('Operations')
+    plt.ylabel('Time (seconds)')
+    plt.title('Binomial Heap Performance')
+    plt.show()
 
-        current = head
-        while heap1 and heap2:
-            if heap1.degree <= heap2.degree:
-                current.sibling = heap1
-                heap1 = heap1.sibling
-            else:
-                current.sibling = heap2
-                heap2 = heap2.sibling
-            current = current.sibling
+# Função para plotar o desempenho normalizado
+def plot_normalized_performance(normalized_insertion, normalized_minimum, normalized_extraction):
+    labels = ['Insertion', 'Minimum', 'Extraction']
+    times = [normalized_insertion, normalized_minimum, normalized_extraction]
 
-        current.sibling = heap1 if heap1 else heap2
-        return head
+    plt.figure(figsize=(10, 5))
+    plt.bar(labels, times, color=['blue', 'green', 'red'])
+    plt.xlabel('Operations')
+    plt.ylabel('Normalized Time')
+    plt.title('Normalized Binomial Heap Performance')
+    plt.show()
 
-    def _link(self, y, z):
-        # y torna-se o filho de z
-        y.parent = z
-        y.sibling = z.child
-        z.child = y
-        z.degree += 1
+# Main
+if __name__ == "__main__":
+    # Leitura do dataset
+    dataset = read_dataset("dataset_100000_numbers.txt")
+
+    # Criando a heap binomial
+    binomial_heap = BinomialHeap()
+
+    # Avaliando o desempenho
+    insertion_time, minimum_time, extraction_time = evaluate_performance(binomial_heap, dataset)
+
+    # Exibindo o desempenho
+    print(f"Insertion Time: {insertion_time:.4f} seconds")
+    print(f"Minimum Search Time: {minimum_time:.4f} seconds")
+    print(f"Extraction Time: {extraction_time:.4f} seconds")
+
+    # Calculando os tempos normalizados
+    normalized_insertion, normalized_minimum, normalized_extraction = normalize_times(insertion_time, minimum_time, extraction_time)
+
+    # Plotando o gráfico de desempenho
+    plot_performance(insertion_time, minimum_time, extraction_time)
+
+    # Plotando o gráfico de desempenho normalizado
+    plot_normalized_performance(normalized_insertion, normalized_minimum, normalized_extraction)
