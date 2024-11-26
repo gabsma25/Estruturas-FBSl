@@ -2,7 +2,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Implementação da classe Node e FibonacciHeap (já fornecida acima)
+# Implementação da classe Node e FibonacciHeap 
 class Node:
     def __init__(self, key):
         self.key = key
